@@ -11,11 +11,11 @@
 
 int main(int argc, const char *argv[])
 {
-    cv::Mat img = cv::imread("0000000000.png");
-    std::cout << img.size() << std::endl;
+    cv::Mat img1 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000000.png");
+    cv::Mat img2 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000001.png");
     std::string windowname = "Image";
-    cv::imshow(windowname, img);
+    cv::imshow(windowname, img2);
     cv::waitKey(0);
-    return 1;
+    return 0;
 
 }
