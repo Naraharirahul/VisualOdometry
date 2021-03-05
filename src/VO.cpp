@@ -11,7 +11,18 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/video/tracking.hpp>
+#include <opencv2/core/mat.hpp>
+#include "opencv2/calib3d/calib3d.hpp"
 
+
+
+double getAbsoluteScale(int fram_id, int sequence_id, double z_cal)
+{
+    string line;
+    int i = 0;
+    ifstream myfile ("")
+
+} 
 void featureTracking(cv::Mat img_1, cv::Mat img_2, std::vector<cv::Point2f>& points1, std::vector<cv::Point2f>& points2,
                      std::vector<uchar>& status)	
 { 
@@ -80,6 +91,8 @@ void detectfeatures(cv::Mat &img, std::vector<cv::Point2f> &point1)
 
 int main(int argc, const char *argv[])
 {
+    double scale = 1.00;
+
     cv::Mat img1 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000000.png");
     cv::Mat img2 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000001.png");
     std::string windowname = "Image";
@@ -95,13 +108,71 @@ int main(int argc, const char *argv[])
     std::vector<uchar> status;
 
     featureTracking(img_gray1,img_gray2,points1,points2, status);
+
+    cv::Mat cameraMatrix = (cv::Mat1d(3,3) << 984.24, 0.0, 690.0, 0.0, 980.81, 233.1, 0.0, 0.0, 1.0 );
+    
+    cv::Mat E;
+    cv::Mat mask;
+    E = cv::findEssentialMat(points2, points1, cameraMatrix, cv::RANSAC, 0.999, 1.0, mask);
+
+    cv::Mat R, t;
+    cv::recoverPose(E, points2, points1, cameraMatrix, R, t, mask);
+
+    cv::Mat prevImage = img_gray2;
+    cv::Mat currImage;
+
+    std::vector<cv::Point2f> prevFeatures = points2;
+    std::vector<cv::Point2f> currFeatures;
+
+    cv::Mat R_f = R.clone();
+    cv::Mat t_f = t.clone();
+
+    cv::namedWindow("front camera", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Trajectory", cv::WINDOW_AUTOSIZE);
+
+    cv::Mat traj = cv::Mat::zeros(600,600,CV_8UC3);
+
+    char filename[100];
+
+    for(int numFrame = 2; numFrame < 123; numFrame++)
+    {
+        std::sprintf(filename,"/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/%08d.png", numFrame);
+        cv::Mat currImage_c = cv::imread(filename);
+        cv::cvtColor(currImage_c, currImage, cv::COLOR_BGR2GRAY);
+        vector<uchar> status;
+        featureTracking(prevImage, currImage, prevFeatures, currFeatures);
+        E = cv::findEssentialMat(currFeatures, prevFeatures, cameraMatrix, cv::RANSAC, 0.999, 1.0, mask);
+        cv::recoverPose(E, currFeatures, prevFeatures, cameraMatrix, R, t, mask);
+
+        cv::Mat prevPts(2,prevFeatures.size(), CV_64F), currPts(2, currFeatures.size(), CV_64F);
+
+
+        for(int i = 0; prevFeatures,size();i++)
+        {
+            prevPts.at<double>(0,i) = prevFeatures.at(i).x;
+            prevPts.at<double>(1,i) = prevFeatures.at(i).y;
+            
+            currPts.at<double>(0,i) = currFeatures.at(i).x;
+            currPts.at<double>(1,i) = currFeatures.at(i).y;
+        }
+
+        scale = getAbsoluteScale()
+
+
+
+
+
+
+    }
+    
     // cv::Mat descriptors;
     // keypointdescriptors(kp, img_gray, descriptors);
 
     // matchdescriptors
 
-    cv::imshow(windowname, img_gray1);
-    cv::waitKey(0);
+
+    // cv::imshow(windowname, img_gray1);
+    // cv::waitKey(0);
     return 0;
 
 }
