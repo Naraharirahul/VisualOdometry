@@ -13,14 +13,15 @@
 #include <opencv2/video/tracking.hpp>
 #include <opencv2/core/mat.hpp>
 #include "opencv2/calib3d/calib3d.hpp"
+#include <sstream>
+#include <fstream>
 
-
-
-double getAbsoluteScale(int frame_id, int sequence_id, double z_cal)	{
+double getAbsoluteScale(int frame_id, int sequence_id, double z_cal)	
+{
   
-  string line;
+  std::string line;
   int i = 0;
-  ifstream myfile ("/home/rahul/Datasets/KITTI_VO/00.txt");
+  std::ifstream myfile("/home/rahul/CPP/00/00.txt");
   double x =0, y=0, z = 0;
   double x_prev, y_prev, z_prev;
   if (myfile.is_open())
@@ -44,7 +45,7 @@ double getAbsoluteScale(int frame_id, int sequence_id, double z_cal)	{
   }
 
   else {
-    cout << "Unable to open file";
+    std::cout << "Unable to open file";
     return 0;
   }
 
@@ -54,8 +55,6 @@ double getAbsoluteScale(int frame_id, int sequence_id, double z_cal)	{
 void featureTracking(cv::Mat img_1, cv::Mat img_2, std::vector<cv::Point2f>& points1, std::vector<cv::Point2f>& points2,
                      std::vector<uchar>& status)	
 { 
-
-//this function automatically gets rid of points for which tracking fails
 
   std::vector<float> err;					
   cv::Size winSize = cv::Size(21,21);																								
@@ -121,8 +120,8 @@ int main(int argc, const char *argv[])
 {
     double scale = 1.00;
 
-    cv::Mat img1 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000000.png");
-    cv::Mat img2 = cv::imread("/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/0000000001.png");
+    cv::Mat img1 = cv::imread("/home/rahul/CPP/00/image_0/000000.png");
+    cv::Mat img2 = cv::imread("/home/rahul/CPP/00/image_0/000001.png");
     std::string windowname = "Image";
     
     cv::Mat img_gray1, img_gray2;
@@ -137,7 +136,7 @@ int main(int argc, const char *argv[])
 
     featureTracking(img_gray1,img_gray2,points1,points2, status);
 
-    cv::Mat cameraMatrix = (cv::Mat1d(3,3) << 984.24, 0.0, 690.0, 0.0, 980.81, 233.1, 0.0, 0.0, 1.0 );
+    cv::Mat cameraMatrix = (cv::Mat1d(3,3) << 718.8560, 0.0, 607.1928, 0.0, 718.8560, 185.2157, 0.0, 0.0, 1.0 );
     
     cv::Mat E;
     cv::Mat mask;
@@ -161,21 +160,25 @@ int main(int argc, const char *argv[])
     cv::Mat traj = cv::Mat::zeros(600,600,CV_8UC3);
 
     char filename[100];
-
-    for(int numFrame = 2; numFrame < 123; numFrame++)
+    char text[100];
+    int fontFace = cv::FONT_HERSHEY_PLAIN;
+    cv::Point textOrg(10, 50);
+    double fontScale = 1;
+    int thickness = 1;
+    for(int numFrame = 2; numFrame < 1000; numFrame++)
     {
-        std::sprintf(filename,"/home/rahul/CPP/2011_09_26/2011_09_26_drive_0035_sync/image_00/data/%08d.png", numFrame);
+        std::sprintf(filename,"/home/rahul/CPP/00/image_0/%06d.png", numFrame);
         cv::Mat currImage_c = cv::imread(filename);
         cv::cvtColor(currImage_c, currImage, cv::COLOR_BGR2GRAY);
-        vector<uchar> status;
-        featureTracking(prevImage, currImage, prevFeatures, currFeatures);
+        std::vector<uchar> status;
+        featureTracking(prevImage, currImage, prevFeatures, currFeatures, status);
         E = cv::findEssentialMat(currFeatures, prevFeatures, cameraMatrix, cv::RANSAC, 0.999, 1.0, mask);
         cv::recoverPose(E, currFeatures, prevFeatures, cameraMatrix, R, t, mask);
 
         cv::Mat prevPts(2,prevFeatures.size(), CV_64F), currPts(2, currFeatures.size(), CV_64F);
 
 
-        for(int i = 0; prevFeatures,size();i++)
+        for(int i = 0; i < prevFeatures.size();i++)
         {
             prevPts.at<double>(0,i) = prevFeatures.at(i).x;
             prevPts.at<double>(1,i) = prevFeatures.at(i).y;
@@ -184,12 +187,39 @@ int main(int argc, const char *argv[])
             currPts.at<double>(1,i) = currFeatures.at(i).y;
         }
 
-        scale = getAbsoluteScale()
+        scale = getAbsoluteScale(numFrame, 0, t.at<double>(2));
 
+        if((scale > 0.1) && (t.at<double>(2) > t.at<double>(0)) && (t.at<double>(2) > t.at<double>(1)))
+        {
+          t_f = t_f + scale * (R_f * t);
 
+          R_f = R * R_f;
+        }
 
+        // t_f = t_f + (R_f * t);
 
+        // R_f = R * R_f;
 
+        if(prevFeatures.size() < 2000 )
+        {
+          detectfeatures(prevImage, prevFeatures);
+          featureTracking(prevImage, currImage, prevFeatures, currFeatures, status);
+        }
+
+        prevImage = currImage.clone();
+        prevFeatures = currFeatures;
+
+        int x = int(t_f.at<double>(0)) + 300;
+        int y = int(t_f.at<double>(2)) + 100;
+        cv::circle(traj, cv::Point(x,y), 1, CV_RGB(255, 0, 0), 2);
+        
+        cv::rectangle(traj, cv::Point(10,30), cv::Point(550, 50), CV_RGB(0,0,0), cv::FILLED);
+        sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm", t_f.at<double>(0), t_f.at<double>(1), t_f.at<double>(2));
+        putText(traj, text, textOrg, fontFace, fontScale, cv::Scalar::all(255), thickness, 8);
+        
+        cv::imshow( "Road facing camera", currImage_c );
+        cv::imshow( "Trajectory", traj );
+        cv::waitKey(1);
 
     }
     
